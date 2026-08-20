@@ -1,0 +1,13 @@
+/.vscode
+
+# Models
+*.gguf
+
+# Build output
+*.o
+*.exe
+*.dll
+*.a
+
+# Build directories
+build/
