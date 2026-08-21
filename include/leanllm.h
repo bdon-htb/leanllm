@@ -1,15 +1,17 @@
 #ifndef LEANLLM_H
 #define LEANLLM_H
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+
+
+#define LEANLLM_RANDOM_SEED UINT32_MAX
 
 typedef enum leanllm_error {
     LEANLLM_OK = 0,
     LEANLLM_ERROR_INVALID_ARGUMENT,
     LEANLLM_ERROR_OUT_OF_MEMORY,
-    LEANLLM_ERROR_MODEL_LOAD,
-    LEANLLM_ERROR_CONTEXT,
     LEANLLM_ERROR_TOKENIZE,
     LEANLLM_ERROR_DECODE
 } leanllm_error;
@@ -24,15 +26,16 @@ typedef struct leanllm_model leanllm_model;
 typedef struct leanllm_chat leanllm_chat;
 
 typedef struct leanllm_model_options {
-    int gpu_layers; // Number of model layers to offload to the GPU. 0 = no GPU offload, negative = all layers.
+    int32_t gpu_layers; // Number of model layers to offload to the GPU. 0 = no GPU offload, negative = all layers.
 } leanllm_model_options;
 
 typedef struct leanllm_chat_options {
-    int context_size;
-    int max_tokens;
+    uint32_t context_size;
+    uint32_t batch_size;
+    uint32_t max_tokens;
 
     float temperature;
-    int top_k;
+    int32_t top_k;
     float top_p;
 
     uint32_t seed;
