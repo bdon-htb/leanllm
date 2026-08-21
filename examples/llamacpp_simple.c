@@ -1,5 +1,5 @@
 /*
- * simple.c
+ * llamacpp_simple.c
  *
  * Minimal llama.cpp inference example written in C.
  *
