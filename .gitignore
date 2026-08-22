@@ -11,3 +11,6 @@
 
 # Build directories
 build/
+
+log.txt
+output.txt
