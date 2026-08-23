@@ -1,3 +1,12 @@
+/*
+ * simple.c
+ *
+ * Basic LeanLLM example.
+ *
+ * Loads a model, creates a chat context, generates a response
+ * from a short conversation, and streams the generated text to stdout.
+ */
+
 #include "leanllm.h"
 
 #include <stdio.h>
@@ -21,7 +30,7 @@ int main(void)
 
     fprintf(stderr, "[load model]\n");
     leanllm_model *model =
-        leanllm_model_load("./models/SmolLM2-135M-Instruct-Q4_K_M.gguf", NULL);
+        leanllm_model_load("./models/gemma-3-270m-it-Q8_0.gguf", NULL);
 
     if (model == NULL)
     {
@@ -31,10 +40,11 @@ int main(void)
     }
 
     fprintf(stderr, "[create chat]\n");
+
     leanllm_chat_options opts = leanllm_chat_default_options();
     opts.temperature = 0.8f;
     opts.top_k = 40;
-    opts.top_k = 0.95f;
+    opts.top_p = 0.95f;
 
     leanllm_chat *chat = leanllm_chat_create(model, &opts);
 
@@ -52,7 +62,7 @@ int main(void)
         {.role = LEANLLM_ROLE_ASSISTANT,
          .content = "Nice to meet you, Bob. Cats are great."},
         {.role = LEANLLM_ROLE_USER,
-         .content = "What is 1+1 and what is my name?"},
+         .content = "What is my name?"},
     };
 
     fprintf(stderr, "[generate]\n");
