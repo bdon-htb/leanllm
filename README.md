@@ -18,7 +18,7 @@ LeanLLM currently focuses on text-only GGUF models and streaming text generation
 Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/bdon-htb/leanllm.git
 cd leanllm
 ```
 
