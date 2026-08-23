@@ -40,7 +40,6 @@ struct leanllm_chat {
     size_t piece_capacity;
 };
 
-
 static const char *get_role_string(leanllm_role role) {
     switch (role) {
     case LEANLLM_ROLE_SYSTEM:
@@ -295,24 +294,17 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
     }
 
     // Reset context memory and sampler.
-    fprintf(stderr, "[generate: reset]\n");
     llama_memory_t mem = llama_get_memory(chat->ctx);
     llama_memory_clear(mem, false);
     llama_sampler_reset(chat->sampler);
-
-    fprintf(stderr, "[generate: messages]\n");
 
     // Allocate / reallocate the llama_chat_message buffer if needed.
 
     size_t new_message_capacity = (chat->message_buffer == NULL) ? LEANLLM_INITIAL_MESSAGE_CAPACITY : chat->message_capacity;
 
-    fprintf(stderr, "[generate: capacity = %zu]\n", new_message_capacity);
-
     while (message_count > new_message_capacity) {
         new_message_capacity *= 2;
     }
-
-    fprintf(stderr, "[generate: allocating messages]\n");
 
     if (chat->message_buffer == NULL) {
         chat->message_buffer = malloc(new_message_capacity * sizeof(*chat->message_buffer));
@@ -332,18 +324,11 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         chat->message_capacity = new_message_capacity;
     }
 
-    fprintf(stderr, "[generate: converting messages]\n");
-
     // Convert and copy leanllm_message messages to llama_chat_message buffer.
     for (size_t i = 0; i < message_count; i++) {
-        fprintf(stderr, "[generate: message %zu]\n", i);
 
         const char *role = get_role_string(messages[i].role);
         const char *content = messages[i].content;
-
-        fprintf(stderr, "[generate: role=%s content=%s]\n",
-                role != NULL ? role : "(null)",
-                content != NULL ? content : "(null)");
 
         if (role == NULL || content == NULL) {
             error = LEANLLM_ERROR_INVALID_ARGUMENT;
@@ -355,8 +340,6 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
             .content = content,
         };
     }
-
-    fprintf(stderr, "[generate: messages converted]\n");
 
     // Step 2: Apply model template to llama_chat_message array.
 
@@ -370,8 +353,6 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
     }
 
     // Try to apply the template.
-
-    fprintf(stderr, "[generate: applying template]\n");
 
     // The size of the prompt in characters / bytes.
     int32_t template_result = llama_chat_apply_template(chat->template, chat->message_buffer, message_count, true, chat->prompt_buffer, (int32_t)chat->prompt_capacity);
@@ -410,13 +391,7 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         prompt_size = (size_t)template_result;
     }
 
-
-    fprintf(stderr, "[generate: template result = %d]\n", template_result);
-    fprintf(stderr, "[generate: prompt]\n%.*s\n",
-            (int)prompt_size,
-            chat->prompt_buffer);
-
-    // TODO: For now we will skip the encoding step.
+    // We skip the encoding step. lleanllm only supports text-only gguf models.
 
     // Step 3. Tokenize prompt.
 
@@ -430,8 +405,6 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
     }
 
     // Try to tokenize our prompt.
-
-    fprintf(stderr, "[generate: tokenize]\n");
 
     int32_t token_result = llama_tokenize(
         chat->model->vocab, 
@@ -480,17 +453,12 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         prompt_token_count = (size_t)token_result;
     }
 
-    fprintf(stderr, "[generate: token result = %d]\n", token_result);
-
     if (prompt_token_count >= chat->context_size) {
         error = LEANLLM_ERROR_CONTEXT;
         goto leanllm_generate_error;
     }
 
     // Process prompt.
-
-    fprintf(stderr, "[generate: prompt tokens = %zu]\n", prompt_token_count);
-    fprintf(stderr, "[generate: initializing batch]\n");
 
     // Number of prompt tokens consumed so far during the batch processing.
     size_t prompt_tokens_consumed = 0;
@@ -518,15 +486,7 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         batch.n_tokens = (int32_t)i;
         prompt_tokens_consumed += i;
 
-        fprintf(stderr,
-                "[generate: decoding prompt batch: %d tokens]\n",
-                batch.n_tokens);
-
         int32_t decode_result = llama_decode(chat->ctx, batch);
-
-        fprintf(stderr,
-                "[generate: prompt decode returned %d]\n",
-                decode_result);
 
         if (decode_result != 0) {
             error = LEANLLM_ERROR_DECODE;
@@ -553,14 +513,8 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
             }
         }
 
-        fprintf(stderr, "[generate: sampling]\n");
-
         // Sample from the logits produced by the decode
         llama_token new_token_id = llama_sampler_sample(chat->sampler, chat->ctx, -1);
-
-        fprintf(stderr,
-                "[generate: sampled token %d]\n",
-                new_token_id);
 
         if (llama_vocab_is_eog(chat->model->vocab, new_token_id)) {
             break;
@@ -625,4 +579,29 @@ leanllm_generate_error:
         llama_batch_free(batch);
     }
     return error;
+}
+
+const char *leanllm_error_string(leanllm_error error) {
+    switch (error) {
+    case LEANLLM_OK:
+        return "success";
+    case LEANLLM_ERROR_INVALID_ARGUMENT:
+        return "invalid argument";
+    case LEANLLM_ERROR_OUT_OF_MEMORY:
+        return "out of memory";
+    case LEANLLM_ERROR_MODEL_LOAD:
+        return "failed to load model";
+    case LEANLLM_ERROR_CONTEXT:
+        return "context error";
+    case LEANLLM_ERROR_TEMPLATE:
+        return "chat template error";
+    case LEANLLM_ERROR_TOKENIZE:
+        return "tokenization error";
+    case LEANLLM_ERROR_DECODE:
+        return "decode error";
+    case LEANLLM_ERROR_TOKEN_TO_PIECE:
+        return "token-to-piece conversion error";
+    default:
+        return "unknown error";
+    }
 }

@@ -31,7 +31,12 @@ int main(void)
     }
 
     fprintf(stderr, "[create chat]\n");
-    leanllm_chat *chat = leanllm_chat_create(model, NULL);
+    leanllm_chat_options opts = leanllm_chat_default_options();
+    opts.temperature = 0.8f;
+    opts.top_k = 40;
+    opts.top_k = 0.95f;
+
+    leanllm_chat *chat = leanllm_chat_create(model, &opts);
 
     if (chat == NULL)
     {
@@ -43,12 +48,21 @@ int main(void)
 
     leanllm_message messages[] = {
         {.role = LEANLLM_ROLE_USER,
-         .content = "Hello! Introduce yourself in one sentence."}};
+         .content = "My name is Bob and I like cats."},
+        {.role = LEANLLM_ROLE_ASSISTANT,
+         .content = "Nice to meet you, Bob. Cats are great."},
+        {.role = LEANLLM_ROLE_USER,
+         .content = "What is 1+1 and what is my name?"},
+    };
 
     fprintf(stderr, "[generate]\n");
 
     leanllm_error err =
-        leanllm_generate(chat, messages, 1, print_piece, NULL);
+        leanllm_generate(chat, messages, 3, print_piece, NULL);
+
+    if (err != LEANLLM_OK) {
+        fprintf(stderr, "LeanLLM error: %s\n", leanllm_error_string(err));
+    }
 
     fprintf(stderr, "[generate returned %d]\n", (int)err);
 

@@ -12,5 +12,7 @@
 # Build directories
 build/
 
+# Temporary debugging files
+*.bat
 log.txt
 output.txt

@@ -12,11 +12,12 @@ typedef enum leanllm_error {
     LEANLLM_OK = 0,
     LEANLLM_ERROR_INVALID_ARGUMENT,
     LEANLLM_ERROR_OUT_OF_MEMORY,
+    LEANLLM_ERROR_MODEL_LOAD,
     LEANLLM_ERROR_CONTEXT,
-    LEANLLM_ERROR_TOKENIZE,
     LEANLLM_ERROR_TEMPLATE,
-    LEANLLM_ERROR_TOKEN_TO_PIECE,
-    LEANLLM_ERROR_DECODE
+    LEANLLM_ERROR_TOKENIZE,
+    LEANLLM_ERROR_DECODE,
+    LEANLLM_ERROR_TOKEN_TO_PIECE
 } leanllm_error;
 
 typedef enum leanllm_role {
@@ -72,5 +73,7 @@ leanllm_chat *leanllm_chat_create(leanllm_model *model, const leanllm_chat_optio
 void leanllm_chat_free(leanllm_chat *chat);
 
 leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messages, size_t message_count, leanllm_stream_callback callback, void *userdata);
+
+const char *leanllm_error_string(leanllm_error error);
 
 #endif
