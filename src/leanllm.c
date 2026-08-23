@@ -53,7 +53,16 @@ static const char *get_role_string(leanllm_role role) {
     }
 }
 
+static void leanllm_log_silent(enum ggml_log_level level, const char *text, void *userdata) {
+    (void)level;
+    (void)text;
+    (void)userdata;
+}
+
 void leanllm_init(void) {
+    // TODO: Make logging configurable.
+    llama_log_set(leanllm_log_silent, NULL);
+
     ggml_backend_load_all();
     llama_backend_init();
 }
