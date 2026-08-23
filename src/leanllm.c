@@ -8,7 +8,7 @@
 #define LEANLLM_INITIAL_MESSAGE_CAPACITY 16
 #define LEANLLM_INITIAL_PROMPT_CAPACITY 1024
 #define LEANLLM_INITIAL_TOKEN_CAPACITY 256
-#define LEANLLM_MAX_TOKEN_PIECE_SIZE 500 // TODO: make this dynamic.
+#define LEANLLM_INITIAL_TOKEN_PIECE_CAPACITY 128
 
 struct leanllm_model {
     struct llama_model *model;
@@ -35,6 +35,9 @@ struct leanllm_chat {
 
     llama_token *token_buffer;
     size_t token_capacity;
+
+    char *piece_buffer;
+    size_t piece_capacity;
 };
 
 
@@ -150,6 +153,8 @@ leanllm_chat *leanllm_chat_create(leanllm_model *model, const leanllm_chat_optio
     chat->prompt_capacity = 0;
     chat->token_buffer = NULL;
     chat->token_capacity = 0;
+    chat->piece_buffer = NULL;
+    chat->piece_capacity = 0;
 
     struct llama_context_params ctx_params = llama_context_default_params();
 
@@ -259,12 +264,16 @@ void leanllm_chat_free(leanllm_chat *chat) {
         free(chat->token_buffer);
     }
 
+    if (chat->piece_buffer != NULL){
+        free(chat->piece_buffer);
+    }
+
     free(chat);
 }
 
 leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messages, size_t message_count, leanllm_stream_callback callback, void *userdata) {
     leanllm_error error;
-    void *tmp; // Temporary memory address for realloc calls.
+    void *tmp = NULL; // Temporary memory address for realloc calls.
     llama_batch batch;
     bool batch_initialized = false;
 
@@ -391,8 +400,8 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         chat->prompt_capacity = new_prompt_capacity;
 
         // Try to apply the template a second time.
-        template_result = llama_chat_apply_template(chat->template, chat->message_buffer, message_count, true, chat->prompt_buffer, chat->prompt_capacity);
-    
+        template_result = llama_chat_apply_template(chat->template, chat->message_buffer, message_count, true, chat->prompt_buffer, (int32_t)chat->prompt_capacity);
+
         if (template_result <= 0) {
             error = LEANLLM_ERROR_TEMPLATE;
             goto leanllm_generate_error;
@@ -496,7 +505,7 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         size_t i = 0;
         while (i < batch_size && prompt_tokens_consumed + i < prompt_token_count) {
             batch.token[i] = chat->token_buffer[prompt_tokens_consumed + i];
-            batch.pos[i] = prompt_tokens_consumed + i;
+            batch.pos[i] = (llama_pos)(prompt_tokens_consumed + i);
 
             batch.n_seq_id[i] = 1;
             batch.seq_id[i][0] = 0;
@@ -506,7 +515,7 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
             i++;
         }
 
-        batch.n_tokens = i;
+        batch.n_tokens = (int32_t)i;
         prompt_tokens_consumed += i;
 
         fprintf(stderr,
@@ -526,7 +535,7 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
     }
 
     // Begin text generation.
-
+    
     for (uint32_t i = 0; i < chat->max_tokens; i++) {
 
         if (prompt_token_count + (size_t)i >= (size_t)chat->context_size) {
@@ -556,17 +565,44 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
         if (llama_vocab_is_eog(chat->model->vocab, new_token_id)) {
             break;
         }
-        
-        char piece[LEANLLM_MAX_TOKEN_PIECE_SIZE];
 
-        int32_t n = llama_token_to_piece(chat->model->vocab, new_token_id, piece, sizeof(piece), 0, true);
-
-        if (n < 0) {
-            error = LEANLLM_ERROR_TOKEN_TO_PIECE;
-            goto leanllm_generate_error;
+        if (chat->piece_buffer == NULL)
+        {
+            chat->piece_buffer = malloc(LEANLLM_INITIAL_TOKEN_PIECE_CAPACITY * sizeof(*chat->piece_buffer));
+            if (chat->piece_buffer == NULL) {
+                error = LEANLLM_ERROR_OUT_OF_MEMORY;
+                goto leanllm_generate_error;
+            }
+            chat->piece_capacity = LEANLLM_INITIAL_TOKEN_PIECE_CAPACITY * sizeof(*chat->piece_buffer);
         }
 
-        if (!callback(piece, (size_t)n, userdata)) {
+        int32_t n = llama_token_to_piece(chat->model->vocab, new_token_id, chat->piece_buffer, (int32_t)chat->piece_capacity, 0, true);
+
+        if (n < 0) {
+            size_t required_piece_buffer_size = -n;
+            size_t new_piece_capacity = chat->piece_capacity;
+
+            while (required_piece_buffer_size > new_piece_capacity) {
+                new_piece_capacity *= 2;
+            }
+            
+            tmp = realloc(chat->piece_buffer, new_piece_capacity * sizeof(*chat->piece_buffer));
+            if (tmp == NULL) {
+                error = LEANLLM_ERROR_OUT_OF_MEMORY;
+                goto leanllm_generate_error;
+            }
+
+            chat->piece_buffer = tmp;
+            chat->piece_capacity = new_piece_capacity;
+
+            n = llama_token_to_piece(chat->model->vocab, new_token_id, chat->piece_buffer, (int32_t)chat->piece_capacity, 0, true);
+            if (n < 0) {
+                error = LEANLLM_ERROR_TOKEN_TO_PIECE;
+                goto leanllm_generate_error;
+            }
+        }
+
+        if (!callback(chat->piece_buffer, (size_t)n, userdata)) {
             break;
         }
 
@@ -574,7 +610,7 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
 
         batch.n_tokens = 1;
         batch.token[0] = new_token_id;
-        batch.pos[0] = prompt_token_count + i;
+        batch.pos[0] = (llama_pos)(prompt_token_count + i);
         batch.n_seq_id[0] = 1;
         batch.seq_id[0][0] = 0;
         batch.logits[0] = 1;
