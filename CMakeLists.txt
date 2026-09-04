@@ -21,7 +21,7 @@ FetchContent_Declare(
     GIT_TAG 07822bddf80d73f1168e592c52e69caaff820f9c
 )
 
-# llama.cpp dependency
+# Disable unnecessary llama.cpp targets
 
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
