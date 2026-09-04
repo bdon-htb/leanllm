@@ -1,6 +1,16 @@
 #ifndef LEANLLM_H
 #define LEANLLM_H
 
+#if defined(_WIN32)
+    #if defined(LEANLLM_BUILD)
+        #define LEANLLM_API __declspec(dllexport)
+    #else
+        #define LEANLLM_API __declspec(dllimport)
+    #endif
+#else
+    #define LEANLLM_API
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -73,28 +83,28 @@ typedef bool (*leanllm_stream_callback)(
  *
  * Must be called before loading models or creating chats.
  */
-void leanllm_init(void);
+LEANLLM_API void leanllm_init(void);
 
 /**
  * @brief Shuts down LeanLLM and its underlying inference backends.
  *
  * Should be called after all models and chats have been freed.
  */
-void leanllm_shutdown(void);
+LEANLLM_API void leanllm_shutdown(void);
 
 /**
  * @brief Returns the default model loading options.
  *
  * @return The default model options.
  */
-leanllm_model_options leanllm_model_default_options(void);
+LEANLLM_API leanllm_model_options leanllm_model_default_options(void);
 
 /**
  * @brief Returns the default chat and generation options.
  *
  * @return The default chat options.
  */
-leanllm_chat_options leanllm_chat_default_options(void);
+LEANLLM_API leanllm_chat_options leanllm_chat_default_options(void);
 
 /**
  * @brief Loads a GGUF model from a file.
@@ -103,7 +113,7 @@ leanllm_chat_options leanllm_chat_default_options(void);
  * @param options Model loading options, or NULL to use the defaults.
  * @return A newly allocated model, or NULL if the model could not be loaded.
  */
-leanllm_model *leanllm_model_load(const char *path, const leanllm_model_options *options);
+LEANLLM_API leanllm_model *leanllm_model_load(const char *path, const leanllm_model_options *options);
 
 /**
  * @brief Frees a loaded model.
@@ -113,7 +123,7 @@ leanllm_model *leanllm_model_load(const char *path, const leanllm_model_options 
  *
  * @param model Model to free.
  */
-void leanllm_model_free(leanllm_model *model);
+LEANLLM_API void leanllm_model_free(leanllm_model *model);
 
 /**
  * @brief Creates a chat context for a loaded model.
@@ -124,7 +134,7 @@ void leanllm_model_free(leanllm_model *model);
  * @param options Chat and generation options, or NULL to use the defaults.
  * @return A newly allocated chat, or NULL if the chat could not be created.
  */
-leanllm_chat *leanllm_chat_create(leanllm_model *model, const leanllm_chat_options *options);
+LEANLLM_API leanllm_chat *leanllm_chat_create(leanllm_model *model, const leanllm_chat_options *options);
 
 /**
  * @brief Frees a chat context and its associated resources.
@@ -133,7 +143,7 @@ leanllm_chat *leanllm_chat_create(leanllm_model *model, const leanllm_chat_optio
  *
  * @param chat Chat to free.
  */
-void leanllm_chat_free(leanllm_chat *chat);
+LEANLLM_API void leanllm_chat_free(leanllm_chat *chat);
 
 /**
  * @brief Generates a response from a sequence of chat messages.
@@ -153,7 +163,7 @@ void leanllm_chat_free(leanllm_chat *chat);
  * @param userdata User-provided pointer passed unchanged to the callback.
  * @return LEANLLM_OK on success, or an error code on failure.
  */
-leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messages, size_t message_count, leanllm_stream_callback callback, void *userdata);
+LEANLLM_API leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messages, size_t message_count, leanllm_stream_callback callback, void *userdata);
 
 /**
  * @brief Returns a human-readable description of a LeanLLM error code.
@@ -163,6 +173,6 @@ leanllm_error leanllm_generate(leanllm_chat *chat, const leanllm_message *messag
  * @param error Error code to describe.
  * @return A null-terminated string describing the error.
  */
-const char *leanllm_error_string(leanllm_error error);
+LEANLLM_API const char *leanllm_error_string(leanllm_error error);
 
 #endif

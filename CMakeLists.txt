@@ -21,7 +21,7 @@ FetchContent_Declare(
     GIT_TAG 07822bddf80d73f1168e592c52e69caaff820f9c
 )
 
-# llama.cpp dependency
+# Disable unnecessary llama.cpp targets
 
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -32,13 +32,24 @@ FetchContent_MakeAvailable(llama_cpp)
 
 # LeanLLM library
 
-add_library(leanllm
+add_library(leanllm SHARED
     src/leanllm.c
 )
+
+if(WIN32)
+    set_target_properties(leanllm PROPERTIES
+        PREFIX ""
+    )
+endif()
 
 target_include_directories(leanllm
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_compile_definitions(leanllm
+    PRIVATE
+        LEANLLM_BUILD
 )
 
 target_link_libraries(leanllm
